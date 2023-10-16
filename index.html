@@ -1,0 +1,298 @@
+<html>
+
+<head>
+	<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+	<link href="css/default.css" rel="stylesheet" type="text/css" />
+	<title>SIGSW</title>
+	<script type="text/javascript"
+		src="http://maps.google.com/maps/api/js?key=AIzaSyD2PxIqZusVpw7K9OkapVg8l1UBWAAnXPg"></script>
+	<script type="text/javascript">
+		var contador = 1;
+		var selected_marker = null;
+
+		var map;
+		var markersArray = [];
+		var TileWMSCarreteras = function (coord, zoom) {
+			var WMS_URL = 'https://servicios.idee.es/wms-inspire/transportes?';
+			var WMS_Layers = 'TN.RoadTransportNetwork.RoadLink';
+			var x = document.getElementById("wms_texto");
+			var proj = map.getProjection();
+			var zfactor = Math.pow(2, zoom);
+			var top = proj.fromPointToLatLng(new google.maps.Point(coord.x * 256 / zfactor, coord.y * 256 / zfactor));
+			var bot = proj.fromPointToLatLng(new google.maps.Point((coord.x + 1) * 256 / zfactor, (coord.y + 1) * 256 / zfactor));
+			var bbox = top.lng() + "," + bot.lat() + "," + bot.lng() + "," + top.lat();
+
+			var myURL = WMS_URL + "SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&SRS=EPSG%3A4326&WIDTH=256&HEIGHT=256&FORMAT=image/png&TRANSPARENT=TRUE";
+			myURL += "&LAYERS=" + WMS_Layers;
+			myURL += "&BBOX=" + bbox;
+			x.innerHTML = myURL;
+			return myURL;
+		}
+
+		var TileWMSAreas = function (coord, zoom) {
+			var WMS_URL = 'https://servicios.idee.es/wms-inspire/transportes?';
+			var WMS_Layers = 'TN.RoadTransportNetwork.RoadServiceArea';
+			var x = document.getElementById("wms_texto");
+			var proj = map.getProjection();
+			var zfactor = Math.pow(2, zoom);
+			var top = proj.fromPointToLatLng(new google.maps.Point(coord.x * 256 / zfactor, coord.y * 256 / zfactor));
+			var bot = proj.fromPointToLatLng(new google.maps.Point((coord.x + 1) * 256 / zfactor, (coord.y + 1) * 256 / zfactor));
+			var bbox = top.lng() + "," + bot.lat() + "," + bot.lng() + "," + top.lat();
+
+			var myURL = WMS_URL + "SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&SRS=EPSG%3A4326&WIDTH=256&HEIGHT=256&FORMAT=image/png&TRANSPARENT=TRUE";
+			myURL += "&LAYERS=" + WMS_Layers;
+			myURL += "&BBOX=" + bbox;
+			x.innerHTML = myURL;
+			return myURL;
+		}
+
+		// Opciones de estilo para el mapa en blanco y negro
+		var estiloMapa = [
+			{ elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+			{ elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+			{ elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+			{
+				featureType: "administrative.locality",
+				elementType: "labels.text.fill",
+				stylers: [{ color: "#d59563" }],
+			},
+			{
+				featureType: "poi",
+				elementType: "labels.text.fill",
+				stylers: [{ color: "#d59563" }],
+			},
+			{
+				featureType: "poi",
+				stylers: [{ visibility: "off" }],
+			},
+			{
+				featureType: "poi.park",
+				elementType: "geometry",
+				stylers: [{ color: "#263c3f" }],
+			},
+			{
+				featureType: "poi.park",
+				elementType: "labels.text.fill",
+				stylers: [{ color: "#6b9a76" }],
+			},
+			{
+				featureType: "road",
+				elementType: "geometry",
+				stylers: [{ color: "#38414e" }],
+			},
+			{
+				featureType: "road",
+				elementType: "geometry.stroke",
+				stylers: [{ color: "#212a37" }],
+			},
+			{
+				featureType: "road",
+				elementType: "labels.text.fill",
+				stylers: [{ color: "#9ca5b3" }],
+			},
+			{
+				featureType: "road.highway",
+				elementType: "geometry",
+				stylers: [{ color: "#746855" }],
+			},
+			{
+				featureType: "road.highway",
+				elementType: "geometry.stroke",
+				stylers: [{ color: "#1f2835" }],
+			},
+			{
+				featureType: "road.highway",
+				elementType: "labels.text.fill",
+				stylers: [{ color: "#f3d19c" }],
+			},
+			{
+				featureType: "transit",
+				elementType: "geometry",
+				stylers: [{ color: "#2f3948" }],
+			},
+			{
+				featureType: "transit.station",
+				elementType: "labels.text.fill",
+				stylers: [{ color: "#d59563" }],
+			},
+			{
+				featureType: "water",
+				elementType: "geometry",
+				stylers: [{ color: "#243870" }],
+			},
+			{
+				featureType: "water",
+				elementType: "labels.text.fill",
+				stylers: [{ color: "#515c6d" }],
+			},
+			{
+				featureType: "water",
+				elementType: "labels.text.stroke",
+				stylers: [{ color: "#17263c" }],
+			},
+			{
+				featureType: 'road', // Ocultar carreteras
+				elementType: 'geometry',
+				stylers: [{ visibility: 'off' }]
+			},
+			{
+				featureType: 'road', // Ocultar etiquetas de carreteras
+				elementType: 'labels.icon',
+				stylers: [{ visibility: 'off' }]
+			}
+		];
+
+		var directionDisplay;
+		var directionsService;
+
+		function initMap() {
+			let defaultCenter = new google.maps.LatLng(42.470831, -2.449951);
+
+			if (navigator.geolocation) {
+				navigator.geolocation.getCurrentPosition((position => {
+					initialize(new google.maps.LatLng(position.coords.latitude, position.coords.longitude));
+				}), () => { initialize(defaultCenter) });
+			}
+			else {
+				initialize(defaultCenter);
+			}
+		}
+
+		function getPrice(price) {
+			if (price === "free") return "0,00";
+			else if (price.includes("€")) {
+				let pos = price.indexOf("€");
+				return price.substring(pos - 4, pos);
+			}
+			else return price.trim().substring(0, 4);
+		}
+
+		let markers = [];
+
+		function initialize(center) {
+			directionsDisplay = new google.maps.DirectionsRenderer({
+				polylineOptions: {
+					strokeColor: '#3282ea', // Color de la línea de la ruta
+					strokeOpacity: 1.0,
+					strokeWeight: 7 // Grosor de la línea de la ruta (ajústalo según tus necesidades)
+				}
+			});
+			directionsService = new google.maps.DirectionsService();
+
+			var misOpciones = {
+				zoom: 9,
+				center: center,
+				mapTypeId: google.maps.MapTypeId.ROADMAP,
+				styles: estiloMapa
+			};
+			map = new google.maps.Map(document.getElementById("map_canvas"), misOpciones);
+
+			var overlayOptions =
+			{
+				getTileUrl: TileWMSCarreteras,
+				tileSize: new google.maps.Size(256, 256)
+			};
+			var overlayOptions2 =
+			{
+				getTileUrl: TileWMSAreas,
+				tileSize: new google.maps.Size(256, 256)
+			};
+			var overlayWMS = new google.maps.ImageMapType(overlayOptions);
+			var overlayWMS2 = new google.maps.ImageMapType(overlayOptions2);
+			map.overlayMapTypes.push(overlayWMS);
+			map.overlayMapTypes.push(overlayWMS2);
+			directionsDisplay.setMap(map);
+
+			const image = "media/electricidad.png";
+			let marker;
+			let price;
+			fetch("https://api.openchargemap.io/v3/poi?statustypeid=50&maxresults=1000&countrycode=ES&camelcase=false&key=ee289fb2-57ea-453d-84ce-70d9906b84d9")
+				.then((res) => res.json())
+				.then((data) => {
+					data.filter(element => element.UsageCost != "" && element.UsageCost != null).forEach(element => {
+
+						marker = new google.maps.Marker({
+							position: { lat: element.AddressInfo.Latitude, lng: element.AddressInfo.Longitude },
+							map: map,
+							icon: image,
+						});
+
+						price = getPrice(element.UsageCost);
+
+							((marker, element) => {
+								marker.addListener('click', () => {
+
+									new google.maps.InfoWindow({
+										content: '<h3>' + element.AddressInfo.Title + '</h3>' +
+											'<p>Dirección: ' + element.AddressInfo.AddressLine1 + '</p>' +
+											'<p>Precio: ' + price + ' €/kWh</p>' +
+											'<p>Conexiones: <ul>' + element.Connections.map(conn => {
+												return '<li>' + conn.CurrentType?.Title + ' - ' + conn.PowerKW + 'kW</li>'
+											}) + '</ul></p>'
+									}).open(map, marker);
+								});
+							})(marker, element);
+
+						markers.push({
+							id: element.ID,
+							marker: marker,
+							price: parseFloat(price.replace(',', '.'))
+						});
+					});
+				})
+				.catch((e) => console.error(e));
+		}
+
+		function calcularRuta() {
+			var start = document.getElementById("start").value;
+			var end = document.getElementById("end").value;
+			var peticion = {
+				origin: start,
+				destination: end,
+				travelMode: google.maps.DirectionsTravelMode.DRIVING
+			};
+			directionsService.route(peticion, function (response, status) {
+				if (status == google.maps.DirectionsStatus.OK) {
+					directionsDisplay.setDirections(response);
+				}
+			});
+		}
+	</script>
+</head>
+
+<body onload="initMap()">
+	<div>
+		<b>Inicio: </b>
+		<select id="start" onchange="calcularRuta();">
+			<option value="Oviedo">Oviedo</option>
+			<option value="Gijon">Gij&oacute;n</option>
+			<option value="Lugo">Lugo</option>
+			<option value="Mieres">Mieres</option>
+			<option value="Madrid">Madrid</option>
+			<option value="Salamanca">Salamanca</option>
+			<option value="Llanes">Llanes</option>
+
+			<option value="Luarca, Valdes">Luarca</option>
+			<option value="Vigo">Vigo</option>
+			<option value="Santander">Santander</option>
+		</select>
+		<b>Fin: </b>
+		<select id="end" onchange="calcularRuta();">
+			<option value="Oviedo">Oviedo</option>
+			<option value="Gijon">Gij&oacute;n</option>
+			<option value="Lugo">Lugo</option>
+			<option value="Mieres">Mieres</option>
+			<option value="Madrid">Madrid</option>
+			<option value="Salamanca">Salamanca</option>
+			<option value="Llanes">Llanes</option>
+
+			<option value="Luarca, Valdes">Luarca</option>
+			<option value="Vigo">Vigo</option>
+			<option value="Santander">Santander</option>
+		</select>
+	</div>
+	<div id="map_canvas"></div>
+	<div id="wms_texto"></div>
+</body>
+
+</html>
