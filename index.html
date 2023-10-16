@@ -206,7 +206,7 @@
 			const image = "media/electricidad.png";
 			let marker;
 			let price;
-			fetch("https://api.openchargemap.io/v3/poi?statustypeid=50&maxresults=1000&countrycode=ES&camelcase=false&key=ee289fb2-57ea-453d-84ce-70d9906b84d9")
+			fetch("https://api.openchargemap.io/v3/poi?statustypeid=50&usagetypeid=1,4,5,7&maxresults=1000&countrycode=ES&camelcase=false&key=ee289fb2-57ea-453d-84ce-70d9906b84d9")
 				.then((res) => res.json())
 				.then((data) => {
 					data.filter(element => element.UsageCost != "" && element.UsageCost != null).forEach(element => {
