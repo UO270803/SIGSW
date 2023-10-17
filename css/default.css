@@ -6,3 +6,15 @@ html, body {
 #map_canvas {
         height: 100%;
       }
+
+body > div:first-of-type{
+  width: 85%;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 1.2rem;
+}
+
+input{
+  width: 100%;
+  margin-bottom: 0.8rem;
+}
