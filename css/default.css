@@ -6,3 +6,22 @@ html, body {
 #map_canvas {
         height: 100%;
       }
+
+body > form {
+  position: absolute;
+  z-index: 1;
+  background: #fff;
+  top: 100px;
+  left: 10px;
+  border-radius: 2px;
+  max-width: 20rem;
+  padding: 1rem;
+  font-family: 'Roboto';
+}
+
+input{
+  width: 100%;
+  margin-bottom: 0.4rem;
+  margin-bottom: 0.8rem;
+  font-family: 'Roboto';
+}
